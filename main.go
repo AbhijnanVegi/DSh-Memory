@@ -10,12 +10,15 @@ import (
 	"dsm/shmem"
 )
 
+var sm *dsm.DSM
+
 func getRoot(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("got / request\n")
+	log.Printf("got / request\n")
 	io.WriteString(w, "This is my website!\n")
 }
 func getHello(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("got /hello request\n")
+	log.Printf("got /hello request\n")
+	sm.SendBroadcast()
 	io.WriteString(w, "Hello, HTTP!\n")
 }
 
@@ -25,7 +28,7 @@ func main() {
 	// 2 - rpc port
 	// 3 - registry address
 	if len(os.Args) < 3 {
-		go.Fatalf("Usage: %s <server port> <rpc port> <registry address>\n", os.Args[0])
+		log.Fatalf("Usage: %s <server port> <rpc port> <registry address>\n", os.Args[0])
 		return
 	}
 
@@ -46,7 +49,7 @@ func main() {
 
 	http.HandleFunc("/", getRoot)
 	http.HandleFunc("/hello", getHello)
-	sm := new(dsm.DSM)
+	sm = new(dsm.DSM)
 	sm.Init(registryAddr, "localhost"+rpcPort)
 
 	rpc.Register(sm)

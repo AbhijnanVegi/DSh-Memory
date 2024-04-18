@@ -10,6 +10,10 @@ type RegisterReply struct {
 	Addrs []string
 }
 
+type BroadcastArgs struct {
+	Ptr int
+}
+
 type DSM struct {
 	addrs []string
 	addrLock sync.Mutex
@@ -43,3 +47,29 @@ func (d *DSM) RegisterReplica(addr *string, reply *RegisterReply) error {
 	reply.Addrs = d.addrs
 	return nil
 }
+
+func (d *DSM) Update(args *BroadcastArgs, reply *int) error {
+	log.Printf("got update %s\n", args.Ptr)
+	*reply = 0
+	return nil
+}
+
+func (d *DSM) SendBroadcast() {
+	log.Printf("[DEBUG] Sending broadcast to %s\n", d.addrs)
+	for _, addr := range d.addrs {
+		client, err := rpc.DialHTTP("tcp", addr)
+		if err != nil {
+			log.Printf("Error dialing %s: %v\n", addr, err)
+			continue
+		}
+		var reply int
+		args := BroadcastArgs{Ptr: 5}
+		log.Printf("[DEBUG] Sending broadcast to %s\n", addr)
+		err = client.Call("DSM.Update", &args, &reply)
+		if err != nil {
+			log.Printf("Error calling %s: %v\n", addr, err)
+			continue
+		}
+	}
+}
+
