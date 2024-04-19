@@ -17,8 +17,9 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "This is my website!\n")
 }
 func getHello(w http.ResponseWriter, r *http.Request) {
-	log.Printf("got /hello request\n")
-	// sm.SendBroadcast()
+	t := sm.Get("Hello")
+	sm.SendBroadcast("DSM.SetVar", dsm.SetArgs{Name: "Hello",Value: (*t).(int) + 1,Creds: dsm.Creds{SenderId: sm.Id}})
+	log.Printf("got /hello request no %v\n", *t)
 	io.WriteString(w, "Hello, HTTP!\n")
 }
 
@@ -46,7 +47,6 @@ func main() {
 		log.Printf("[INFO] Running as registry\n")
 	}
 
-
 	http.HandleFunc("/", getRoot)
 	http.HandleFunc("/hello", getHello)
 	sm = new(dsm.DSM)
@@ -63,5 +63,6 @@ func main() {
 	go http.Serve(l, nil)
 
 	log.Printf("[INFO] Serving HTTP server on port %s\n", serverPort)
+	sm.Set("Hello", 0)
 	http.ListenAndServe(serverPort, nil)
 }
