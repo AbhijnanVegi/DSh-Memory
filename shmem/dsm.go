@@ -10,7 +10,7 @@ import (
 type UpdateMessage struct {
 	Id        int // ID of the message
 	Args      SetArgs
-	priority  int
+	Priority  int
 	delivered bool
 }
 
@@ -19,7 +19,7 @@ type PriorityQueue []*UpdateMessage
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return pq[i].priority < pq[j].priority
+	return pq[i].Priority < pq[j].Priority
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
@@ -118,7 +118,7 @@ func (d *DSM) Set(name string, value interface{}) {
 	replies := d.SendBroadcast("DSM.ProposePriority", updateMsg)
 
 	// Find the max priority
-	maxPriority := 0
+	maxPriority := d.maxPriority
 	for _, p := range replies {
 		if p > maxPriority {
 			maxPriority = p
@@ -126,13 +126,13 @@ func (d *DSM) Set(name string, value interface{}) {
 	}
 
 	d.maxPriority = maxPriority
-
+	
 	log.Printf("[DEBUG] Got max priority: %v\n", maxPriority)
 
 	// Send the final priority
-	updateMsg.priority = maxPriority
+	updateMsg.Priority = maxPriority
 	d.SendBroadcast("DSM.FinalPriority", updateMsg)
-	log.Printf("[DEBUG] Sent final priority\n")
+	log.Printf("[DEBUG] Sent final priority %v \n", updateMsg.Priority)
 }
 
 func (d *DSM) SendBroadcast(fun string, args interface{}) []int {

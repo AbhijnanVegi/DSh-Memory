@@ -52,20 +52,20 @@ func (d *DSM) ProposePriority(message UpdateMessage, reply *int) error {
 	d.maxPriority = d.maxPriority + 1
 	log.Printf("Proposing priority %v for message %v\n", d.maxPriority, message)
 	*reply = d.maxPriority
-	heap.Push(&d.pq, &UpdateMessage{priority: d.maxPriority, Id: message.Id, Args: message.Args, delivered: false})
+	heap.Push(&d.pq, &UpdateMessage{Priority: d.maxPriority, Id: message.Id, Args: message.Args, delivered: false})
 	return nil
 }
 
-func (d *DSM) FinalPriority(message UpdateMessage, reply *int) error {
+func (d *DSM) FinalPriority(message *UpdateMessage, reply *int) error {
 
-	log.Printf("Finalizing priority for message %v\n", message)
+	log.Printf("Finalizing priority for message %s\n", message)
 
 	*reply = 0
 	messageFound := false
 	// Update the priority of a message
 	for i, v := range d.pq {
 		if v.Id == message.Id {
-			d.pq[i].priority = message.priority
+			d.pq[i].Priority = message.Priority
 			d.pq[i].delivered = true
 			heap.Fix(&d.pq, i)
 			messageFound = true
@@ -91,6 +91,7 @@ func (d *DSM) FinalPriority(message UpdateMessage, reply *int) error {
 			break
 		} else {
 			highestPriorityMessage = _highestPriorityMessage.(*UpdateMessage)
+			d.maxPriority = max(d.maxPriority, highestPriorityMessage.Priority)
 		}
 
 		*reply = *reply + 1
