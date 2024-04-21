@@ -51,12 +51,12 @@ func (d *DSM) SetVar(args *SetArgs, reply *int) error {
 	return nil
 }
 
-func (d *DSM) ProposePriority(message UpdateMessage, reply *int) error {
+func (d *DSM) ProposePriority(message UpdateMessage, reply *PairInt) error {
 	// Propose a priority for a message
 	d.maxPriority = d.maxPriority + 1
 	log.Printf("Proposing priority %v for message %v\n", d.maxPriority, message)
-	*reply = d.maxPriority
-	heap.Push(&d.pq, &UpdateMessage{Priority: d.maxPriority, Id: message.Id, Args: message.Args, delivered: false})
+	*reply = PairInt{First: d.maxPriority, Second: d.Id}
+	heap.Push(&d.pq, &UpdateMessage{Priority: PairInt{First: d.maxPriority, Second: d.Id}, Id: message.Id, Args: message.Args, delivered: false})
 	return nil
 }
 
@@ -95,7 +95,9 @@ func (d *DSM) FinalPriority(message *UpdateMessage, reply *int) error {
 			break
 		} else {
 			highestPriorityMessage = _highestPriorityMessage.(*UpdateMessage)
-			d.maxPriority = max(d.maxPriority, highestPriorityMessage.Priority)
+			if highestPriorityMessage.Priority.First > d.maxPriority {
+				d.maxPriority = highestPriorityMessage.Priority.First
+			}
 		}
 
 		*reply = *reply + 1

@@ -16,6 +16,7 @@ var sm *dsm.DSM
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	log.Printf("got / request\n")
 	sm.Set("Hello", 0)
+	sm.Set("Speed", 0)
 	io.WriteString(w, "This is my website!\n")
 }
 
@@ -69,17 +70,17 @@ func main() {
 	http.HandleFunc("/increaseSpeed", increaseSpeed)
 
 	sm = new(dsm.DSM)
-	
+
 	rpc.Register(sm)
 	rpc.HandleHTTP()
-	
+
 	l, err := net.Listen("tcp", rpcPort)
 	if err != nil {
 		log.Panicf("listen error: %s\n", err)
 	}
 	log.Printf("[INFO] Serving RPC server on port %s\n", rpcPort)
 	go http.Serve(l, nil)
-	
+
 	sm.Init(registryAddr, "localhost"+rpcPort)
 	log.Printf("[INFO] Serving HTTP server on port %s\n", serverPort)
 	http.ListenAndServe(serverPort, nil)

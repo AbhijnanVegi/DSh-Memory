@@ -7,10 +7,15 @@ import (
 	"time"
 )
 
+type PairInt struct {
+	First  int
+	Second int
+}
+
 type UpdateMessage struct {
 	Id        int64 // ID of the message
 	Args      SetArgs
-	Priority  int
+	Priority  PairInt
 	delivered bool
 }
 
@@ -19,7 +24,11 @@ type PriorityQueue []*UpdateMessage
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return pq[i].Priority < pq[j].Priority
+	if pq[i].Priority.First == pq[j].Priority.First {
+		return pq[i].Priority.Second < pq[j].Priority.Second
+	} else {
+		return pq[i].Priority.First < pq[j].Priority.First
+	}
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
@@ -47,7 +56,7 @@ func (pq *PriorityQueue) Top() interface{} {
 	if n == 0 {
 		return nil
 	}
-	
+
 	log.Printf("Index: %v\n", n-1)
 	item := old[n-1]
 	return item
@@ -109,7 +118,7 @@ func (d *DSM) setim(name string, value interface{}) {
 func (d *DSM) Get(name string) *interface{} {
 	// Get the value of a shared variable
 	if d.getim(name) == nil {
-		for _,addr := range d.addrs {
+		for _, addr := range d.addrs {
 			client, err := rpc.DialHTTP("tcp", addr)
 			if err != nil {
 				log.Printf("Error dialing %s: %v\n", addr, err)
@@ -137,18 +146,21 @@ func (d *DSM) Set(name string, value interface{}) {
 	messageId := time.Now().UnixNano()
 	updateMsg := UpdateMessage{Id: messageId, Args: SetArgs{Name: name, Value: value, Creds: Creds{SenderId: d.Id}}, delivered: false}
 	log.Printf("[DEBUG] Sending write update: %v\n", updateMsg)
-	replies := d.SendBroadcast("DSM.ProposePriority", updateMsg)
+	replies := d.SendBroadcastForPairIntReplies("DSM.ProposePriority", updateMsg)
 
 	// Find the max priority
-	maxPriority := d.maxPriority
+	maxPriority := replies[0]
+
 	for _, p := range replies {
-		if p > maxPriority {
+		if p.First > maxPriority.First {
+			maxPriority = p
+		} else if p.First == maxPriority.First && p.Second > maxPriority.Second {
 			maxPriority = p
 		}
 	}
 
-	d.maxPriority = maxPriority
-	
+	d.maxPriority = maxPriority.First
+
 	log.Printf("[DEBUG] Got max priority: %v\n", maxPriority)
 
 	// Send the final priority
@@ -167,6 +179,28 @@ func (d *DSM) SendBroadcast(fun string, args interface{}) []int {
 			continue
 		}
 		var reply int
+		log.Printf("[DEBUG] Calling %s(%s) on %s\n", fun, args, addr)
+		err = client.Call(fun, args, &reply)
+		if err != nil {
+			log.Printf("Error calling %s: %v\n", addr, err)
+			continue
+		}
+		replies = append(replies, reply)
+	}
+	log.Printf("[DEBUG] Got replies: %v\n", replies)
+	return replies
+}
+
+func (d *DSM) SendBroadcastForPairIntReplies(fun string, args interface{}) []PairInt {
+	log.Printf("[DEBUG] Sending broadcast to %s\n", d.addrs)
+	replies := make([]PairInt, 0)
+	for _, addr := range d.addrs {
+		client, err := rpc.DialHTTP("tcp", addr)
+		if err != nil {
+			log.Printf("Error dialing %s: %v\n", addr, err)
+			continue
+		}
+		var reply PairInt
 		log.Printf("[DEBUG] Calling %s(%s) on %s\n", fun, args, addr)
 		err = client.Call(fun, args, &reply)
 		if err != nil {
