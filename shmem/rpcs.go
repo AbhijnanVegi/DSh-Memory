@@ -42,7 +42,7 @@ func (d *DSM) GetVar(name string, reply *interface{}) error {
 
 func (d *DSM) SetVar(args *SetArgs, reply *int) error {
 	// Set the value of a shared variable
-	d.Set(args.Name, args.Value)
+	d.setim(args.Name, args.Value)
 	*reply = 0
 	return nil
 }
@@ -83,7 +83,7 @@ func (d *DSM) FinalPriority(message UpdateMessage, reply *int) error {
 	}
 	for highestPriorityMessage.delivered {
 		log.Printf("Delivering message: %v\n", highestPriorityMessage)
-		d.Set(highestPriorityMessage.Args.Name, highestPriorityMessage.Args.Value)
+		d.setim(highestPriorityMessage.Args.Name, highestPriorityMessage.Args.Value)
 		d.pq.Pop()
 		_highestPriorityMessage := d.pq.Top()
 

@@ -32,7 +32,8 @@ func getSpeed(w http.ResponseWriter, r *http.Request) {
 
 func increaseSpeed(w http.ResponseWriter, r *http.Request) {
 	t := sm.Get("Speed")
-	sm.SendWriteUpdate(dsm.SetArgs{Name: "Speed", Value: (*t).(int) + 1, Creds: dsm.Creds{SenderId: sm.Id}})
+	sm.Set("Speed", (*t).(int)+1)
+	// sm.SendWriteUpdate(dsm.SetArgs{Name: "Speed", Value: (*t).(int) + 1, Creds: dsm.Creds{SenderId: sm.Id}})
 	log.Printf("got /speed request no %v\n", *t)
 	io.WriteString(w, "Speed, HTTP!"+strconv.Itoa((*t).(int)))
 }
@@ -64,19 +65,20 @@ func main() {
 	http.HandleFunc("/hello", getHello)
 	http.HandleFunc("/speed", getSpeed)
 	http.HandleFunc("/increaseSpeed", increaseSpeed)
-	sm = new(dsm.DSM)
-	sm.Init(registryAddr, "localhost"+rpcPort)
 
+	sm = new(dsm.DSM)
+	
 	rpc.Register(sm)
 	rpc.HandleHTTP()
-
+	
 	l, err := net.Listen("tcp", rpcPort)
 	if err != nil {
 		log.Panicf("listen error: %s\n", err)
 	}
 	log.Printf("[INFO] Serving RPC server on port %s\n", rpcPort)
 	go http.Serve(l, nil)
-
+	
+	sm.Init(registryAddr, "localhost"+rpcPort)
 	log.Printf("[INFO] Serving HTTP server on port %s\n", serverPort)
 	sm.Set("Hello", 0)
 	sm.Set("Speed", 0)
