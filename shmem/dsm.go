@@ -8,7 +8,7 @@ import (
 )
 
 type UpdateMessage struct {
-	Id        int // ID of the message
+	Id        int64 // ID of the message
 	Args      SetArgs
 	Priority  int
 	delivered bool
@@ -113,7 +113,8 @@ func (d *DSM) Get(name string) *interface{} {
 
 func (d *DSM) Set(name string, value interface{}) {
 	// Send a write update to all clients
-	updateMsg := UpdateMessage{Id: d.Id, Args: SetArgs{Name: name, Value: value, Creds: Creds{SenderId: d.Id}}, delivered: false}
+	messageId := time.Now().UnixNano()
+	updateMsg := UpdateMessage{Id: messageId, Args: SetArgs{Name: name, Value: value, Creds: Creds{SenderId: d.Id}}, delivered: false}
 	log.Printf("[DEBUG] Sending write update: %v\n", updateMsg)
 	replies := d.SendBroadcast("DSM.ProposePriority", updateMsg)
 
