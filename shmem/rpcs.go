@@ -36,7 +36,11 @@ func (d *DSM) UpdateAddrs(args *RegisterArgs, reply *int) error {
 
 func (d *DSM) GetVar(name string, reply *interface{}) error {
 	// Get the value of a shared variable
-	*reply = d.Get(name)
+	if d.getim(name) == nil {
+		*reply = nil
+		return nil
+	}
+	*reply = *d.getim(name)
 	return nil
 }
 

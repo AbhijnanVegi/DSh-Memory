@@ -101,14 +101,35 @@ func (d *DSM) setim(name string, value interface{}) {
 	// Set the value of a shared variable
 	if d.vars[name] == nil {
 		d.vars[name] = &value
-		} else {
-			*d.vars[name] = value
-		}
+	} else {
+		*d.vars[name] = value
+	}
 }
 
 func (d *DSM) Get(name string) *interface{} {
-		// Get the value of a shared variable
-		return d.getim(name)
+	// Get the value of a shared variable
+	if d.getim(name) == nil {
+		for _,addr := range d.addrs {
+			client, err := rpc.DialHTTP("tcp", addr)
+			if err != nil {
+				log.Printf("Error dialing %s: %v\n", addr, err)
+				continue
+			}
+			var reply interface{}
+			log.Printf("[DEBUG] Calling DSM.GetVar(%s) on %s\n", name, addr)
+			err = client.Call("DSM.GetVar", name, &reply)
+			if err != nil {
+				log.Printf("Error calling %s: %v\n", addr, err)
+				continue
+			}
+			log.Printf("[DEBUG] Got reply: %v\n", reply)
+			if reply != nil {
+				d.setim(name, reply)
+				return d.getim(name)
+			}
+		}
+	}
+	return d.getim(name)
 }
 
 func (d *DSM) Set(name string, value interface{}) {

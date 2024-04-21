@@ -15,11 +15,13 @@ var sm *dsm.DSM
 
 func getRoot(w http.ResponseWriter, r *http.Request) {
 	log.Printf("got / request\n")
+	sm.Set("Hello", 0)
 	io.WriteString(w, "This is my website!\n")
 }
+
 func getHello(w http.ResponseWriter, r *http.Request) {
 	t := sm.Get("Hello")
-	sm.SendBroadcast("DSM.SetVar", dsm.SetArgs{Name: "Hello", Value: (*t).(int) + 1, Creds: dsm.Creds{SenderId: sm.Id}})
+	sm.Set("Hello", (*t).(int)+1)
 	log.Printf("got /hello request no %v\n", *t)
 	io.WriteString(w, "Hello, HTTP!\n")
 }
@@ -80,7 +82,5 @@ func main() {
 	
 	sm.Init(registryAddr, "localhost"+rpcPort)
 	log.Printf("[INFO] Serving HTTP server on port %s\n", serverPort)
-	sm.Set("Hello", 0)
-	sm.Set("Speed", 0)
 	http.ListenAndServe(serverPort, nil)
 }
