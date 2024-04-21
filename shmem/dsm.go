@@ -2,17 +2,63 @@ package dsm
 
 import (
 	"log"
-	"sync"
 	"net/rpc"
+	"sync"
 )
 
+type UpdateMessage struct {
+	Id        int // ID of the message
+	Args      SetArgs
+	priority  int
+	delivered bool
+}
 
+type PriorityQueue []*UpdateMessage
+
+func (pq PriorityQueue) Len() int { return len(pq) }
+
+func (pq PriorityQueue) Less(i, j int) bool {
+	return pq[i].priority < pq[j].priority
+}
+
+func (pq PriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+}
+
+func (pq *PriorityQueue) Push(x interface{}) {
+	item := (x).(*UpdateMessage)
+	log.Printf("Pushing item: %v, New length: %v", item, len(*pq))
+	*pq = append(*pq, item)
+}
+
+func (pq *PriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	*pq = old[0 : n-1]
+	return item
+}
+
+func (pq *PriorityQueue) Top() interface{} {
+	old := *pq
+	n := len(old)
+
+	if n == 0 {
+		return nil
+	}
+	
+	log.Printf("Index: %v\n", n-1)
+	item := old[n-1]
+	return item
+}
 
 type DSM struct {
-	Id int // Unique ID for the client
-	addrs []string // Addresses of all clients
-	addrLock sync.Mutex 
-	vars map[string]*interface{} // Shared variables
+	Id          int      // Unique ID for the client
+	addrs       []string // Addresses of all clients
+	addrLock    sync.Mutex
+	vars        map[string]*interface{} // Shared variables
+	maxPriority int
+	pq          PriorityQueue
 }
 
 // Initialize the DSM
@@ -65,7 +111,7 @@ func (d *DSM) SendBroadcast(fun string, args interface{}) []int {
 			continue
 		}
 		var reply int
-		log.Printf("[DEBUG] Calling %s(%s) on %s\n",fun, args, addr)
+		log.Printf("[DEBUG] Calling %s(%s) on %s\n", fun, args, addr)
 		err = client.Call(fun, args, &reply)
 		if err != nil {
 			log.Printf("Error calling %s: %v\n", addr, err)
@@ -77,3 +123,26 @@ func (d *DSM) SendBroadcast(fun string, args interface{}) []int {
 	return replies
 }
 
+func (d *DSM) SendWriteUpdate(args interface{}) {
+	// Send a write update to all clients
+	updateMsg := UpdateMessage{Id: d.Id, Args: (args).(SetArgs), delivered: false}
+	log.Printf("[DEBUG] Sending write update: %v\n", updateMsg)
+	replies := d.SendBroadcast("DSM.ProposePriority", updateMsg)
+
+	// Find the max priority
+	maxPriority := 0
+	for _, p := range replies {
+		if p > maxPriority {
+			maxPriority = p
+		}
+	}
+
+	d.maxPriority = maxPriority
+
+	log.Printf("[DEBUG] Got max priority: %v\n", maxPriority)
+
+	// Send the final priority
+	updateMsg.priority = maxPriority
+	d.SendBroadcast("DSM.FinalPriority", updateMsg)
+	log.Printf("[DEBUG] Sent final priority\n")
+}

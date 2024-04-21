@@ -1,6 +1,8 @@
 package dsm
 
 import (
+	"container/heap"
+	"errors"
 	"log"
 )
 
@@ -38,9 +40,61 @@ func (d *DSM) GetVar(name string, reply *interface{}) error {
 	return nil
 }
 
-func(d *DSM) SetVar(args *SetArgs, reply *int) error {
+func (d *DSM) SetVar(args *SetArgs, reply *int) error {
 	// Set the value of a shared variable
 	d.Set(args.Name, args.Value)
 	*reply = 0
+	return nil
+}
+
+func (d *DSM) ProposePriority(message UpdateMessage, reply *int) error {
+	// Propose a priority for a message
+	d.maxPriority = d.maxPriority + 1
+	log.Printf("Proposing priority %v for message %v\n", d.maxPriority, message)
+	*reply = d.maxPriority
+	heap.Push(&d.pq, &UpdateMessage{priority: d.maxPriority, Id: message.Id, Args: message.Args, delivered: false})
+	return nil
+}
+
+func (d *DSM) FinalPriority(message UpdateMessage, reply *int) error {
+
+	log.Printf("Finalizing priority for message %v\n", message)
+
+	*reply = 0
+	messageFound := false
+	// Update the priority of a message
+	for i, v := range d.pq {
+		if v.Id == message.Id {
+			d.pq[i].priority = message.priority
+			d.pq[i].delivered = true
+			heap.Fix(&d.pq, i)
+			messageFound = true
+			break
+		}
+	}
+
+	if !messageFound {
+		return errors.New("message not found")
+	}
+
+	highestPriorityMessage := d.pq.Top().(*UpdateMessage)
+	if highestPriorityMessage == nil {
+		return nil
+	}
+	for highestPriorityMessage.delivered {
+		log.Printf("Delivering message: %v\n", highestPriorityMessage)
+		d.Set(highestPriorityMessage.Args.Name, highestPriorityMessage.Args.Value)
+		d.pq.Pop()
+		_highestPriorityMessage := d.pq.Top()
+
+		if _highestPriorityMessage == nil {
+			break
+		} else {
+			highestPriorityMessage = _highestPriorityMessage.(*UpdateMessage)
+		}
+
+		*reply = *reply + 1
+	}
+
 	return nil
 }

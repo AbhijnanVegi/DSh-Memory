@@ -1,13 +1,14 @@
 package main
 
 import (
-	"os"
+	dsm "dsm/shmem"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/rpc"
-	"dsm/shmem"
+	"os"
+	"strconv"
 )
 
 var sm *dsm.DSM
@@ -18,11 +19,23 @@ func getRoot(w http.ResponseWriter, r *http.Request) {
 }
 func getHello(w http.ResponseWriter, r *http.Request) {
 	t := sm.Get("Hello")
-	sm.SendBroadcast("DSM.SetVar", dsm.SetArgs{Name: "Hello",Value: (*t).(int) + 1,Creds: dsm.Creds{SenderId: sm.Id}})
+	sm.SendBroadcast("DSM.SetVar", dsm.SetArgs{Name: "Hello", Value: (*t).(int) + 1, Creds: dsm.Creds{SenderId: sm.Id}})
 	log.Printf("got /hello request no %v\n", *t)
 	io.WriteString(w, "Hello, HTTP!\n")
 }
 
+func getSpeed(w http.ResponseWriter, r *http.Request) {
+	t := sm.Get("Speed")
+	log.Printf("got /speed request no %v\n", *t)
+	io.WriteString(w, "Speed, HTTP!"+strconv.Itoa((*t).(int)))
+}
+
+func increaseSpeed(w http.ResponseWriter, r *http.Request) {
+	t := sm.Get("Speed")
+	sm.SendWriteUpdate(dsm.SetArgs{Name: "Speed", Value: (*t).(int) + 1, Creds: dsm.Creds{SenderId: sm.Id}})
+	log.Printf("got /speed request no %v\n", *t)
+	io.WriteString(w, "Speed, HTTP!"+strconv.Itoa((*t).(int)))
+}
 func main() {
 	// Take args from cmd line
 	// 1 - server port
@@ -49,6 +62,8 @@ func main() {
 
 	http.HandleFunc("/", getRoot)
 	http.HandleFunc("/hello", getHello)
+	http.HandleFunc("/speed", getSpeed)
+	http.HandleFunc("/increaseSpeed", increaseSpeed)
 	sm = new(dsm.DSM)
 	sm.Init(registryAddr, "localhost"+rpcPort)
 
@@ -64,5 +79,6 @@ func main() {
 
 	log.Printf("[INFO] Serving HTTP server on port %s\n", serverPort)
 	sm.Set("Hello", 0)
+	sm.Set("Speed", 0)
 	http.ListenAndServe(serverPort, nil)
 }
